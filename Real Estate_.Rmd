@@ -1,0 +1,319 @@
+---
+title: "Realtor.com - Housing Market in California"
+author: "Alondra Aleman, Blessing Nwogu, Stephanie Garcia"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+
+
+```{r setup, include=FALSE}
+# install.packages("flexdashboard")
+# install.packages("dplyr")
+# install.packages("plotly")
+# install.packages("DT")
+# install.packages("gridExtra")
+# install.packages("shiny")
+# install.packages("tidyverse")
+# install.packages("ggplot2")
+# install.packages("htmltools")
+# install.packages("highcharter")
+# install.packages("viridis")
+
+library(flexdashboard)
+library(dplyr)
+library(plotly)
+library(DT)
+library(gridExtra)
+library(shiny)
+library(tidyverse)
+library(ggplot2)
+library(htmltools)
+library(highcharter)
+library(viridis)
+```
+
+
+
+
+```{r include=FALSE}
+#importing the dataset, selecting variables needed and removing null values
+#read csv file, select variables and clean data
+realtor_data = read.csv("Realtor_data.csv") #Loading California Realtor.com data
+dates = as.Date(realtor_data$DATE, format = "%m/%d/%y")
+sum(is.na(realtor_data)) #check for missing data
+summary(realtor_data)
+
+hotness = read.csv("RDC_CA_Hotness.csv")
+str(hotness)
+summary(hotness)
+
+df = read.csv("RDC_Inventory_Hotness_Metrics_County_History.csv") 
+df = df %>%
+  select(year, month, county_name, state, hotness_rank, hotness_score, supply_score, demand_score)
+
+hotness2 = na.omit(df) #remove NAs
+str(hotness2)
+summary(hotness2)
+```
+
+
+```{r echo=FALSE}
+Lowest_prices_2020 =
+  hotness %>%
+  select(ï..DATE,median_listing_price,COUNTY_NAME,median_days_on_market,hotness_rank,hotness_score,demand_score, supply_score) %>%
+  filter(COUNTY_NAME %in% c("fresno","imperial","kings","kern", "lake","madera","merced","tehama","tulare","siskiyou")) %>%
+  filter(ï..DATE %in% c("1/1/20","2/1/20","3/1/20","4/1/20","5/1/20","6/1/20","7/1/20","8/1/20","9/1/20","10/1/20","11/1/20","12/1/20"))
+
+#The Hotness score is an equally-weighted composite metric of a geography’s supply score and demand score.
+```
+
+
+
+
+```{r echo=FALSE}
+prices_2020 =
+  hotness %>%
+  select(ï..DATE,median_listing_price,COUNTY_NAME, median_days_on_market,hotness_rank,hotness_score,demand_score, supply_score) %>%
+  filter(COUNTY_NAME %in% c("santa barbara","san mateo","marin","san francisco","napa","monterey","santa clara","santa cruz","los angeles","orange")) %>%
+  filter(ï..DATE %in% c("1/1/20","2/1/20","3/1/20","4/1/20","5/1/20","6/1/20","7/1/20","8/1/20","9/1/20","10/1/20","11/1/20","12/1/20"))
+```
+
+Listing Prices
+=======================================================================
+
+
+Row {data-width=350}
+-----------------------------------------------------------------------
+
+
+### Maximum Listing Price in 2020
+
+```{r}
+#Value box for the minimum listing prices in 2020
+valueBox(scales::dollar(1596134.45), color = "purple", icon = "fa-chart-line")
+```
+
+### Average Listing Price in 2020
+
+```{r}
+valueBox(scales::dollar(1397441), color = "blue", icon = "fa-hand-holding-usd")
+```
+
+### Minimum Listing Price in 2020
+
+```{r}
+#Value box for minimum listing price
+valueBox(scales::dollar(1218316.55), color = "green", icon = "fa-money-bill")
+```
+
+Column {.tabset data-width=650}
+-----------------------------------------------------------------------
+
+
+### Housing Demand
+ 
+```{r}
+demandScore_state = hotness2%>%
+  group_by(year, state)%>%
+  summarise(state, Average = round(mean(demand_score),2)) #group the data by tear and then by state and summarize it by average demand score of states
+#view(p)
+states= read.csv("US states.csv") #read csv file for US states
+a = demandScore_state%>%
+  inner_join(states, by.x = state, by.y = state)%>% #join the column 'state' in 'states' dataset to the demandScore_state view 
+  select(year,state,state_code, Average)%>%
+  mutate(hover = paste0(state, "\n", "Demand Score: ",Average)) #concatenate the hover text
+fontStyle = list(family = "DM Sans",
+                 size = 15,
+                 color ="black"
+                 ) #font style
+label = list(bgcolor = "#EEEEEE",
+             bordercolr = "transparent",
+             font = fontStyle
+             )
+```
+
+
+
+```{r}
+plotMap= plot_geo(a, 
+            locationmode = 'USA-states', 
+            frame = ~year)%>% #use USA-States map and add a slider with years in the dataset
+  add_trace(locations = ~state_code, 
+            z = ~Average,
+            zmin = 0,
+            zmax = max(a$Average),
+            colorscale = 'Picnic', reversescale = T,
+            text = ~hover,
+            hoverinfo = 'text',
+            color = ~Average)%>%
+  layout(geo = list(scope = "usa"),
+         font = list(family= "DM Sans"),
+         title = "Housing Demand\n2017 - 2021")%>%
+  style(hoverlabel = label)%>%
+  config(displayModeBar = F)
+plotMap
+
+```
+
+
+
+```{r include=FALSE}
+Dec_hotness =
+  hotness %>%
+  select(ï..DATE,median_listing_price,COUNTY_NAME, median_days_on_market) %>%
+  filter(COUNTY_NAME %in% c("santa barbara","san mateo","marin","san francisco","napa","monterey","santa clara","santa cruz","los angeles","orange")) %>%
+  filter(ï..DATE %in% "12/1/20")
+
+```
+
+```{r}
+Lowest_price =
+  hotness %>%
+  select(ï..DATE,median_listing_price,COUNTY_NAME) %>%
+  filter(COUNTY_NAME %in% c("fresno","imperial","kings","kern", "lake","madera","merced","tehama","tulare","siskiyou")) %>%
+  filter(ï..DATE %in% "12/1/20")
+
+```
+
+### 10 Most Expensive Counties in California
+
+```{r fig.height=4, fig.width=7}
+fig2 = plot_ly(
+  x = Dec_hotness$COUNTY_NAME,
+  y = Dec_hotness$median_listing_price,
+  name = "Top Highest Prices per county",
+  type = "bar",
+  marker = list(color = "rgba('195, 195, 195, 0.6)",
+                            line = list(color = "rgb(20, 20, 20)",
+                                        width = 2 )))
+ 
+fig2 <- fig2 %>% layout(title = "Median Listing Prices in \nTop 10 Most Expensive Counties (Dec 2020)", yaxis = list(title="Listing Price", color ="black"))
+
+
+fig2
+```
+
+### 10 Least Expensive Counties in California
+
+```{r}
+fig3 = plot_ly(
+  x = Lowest_price$COUNTY_NAME,
+  y = Lowest_price$median_listing_price,
+  name = "Lowest Prices per county",
+  type = "bar",
+  marker = list(color = "rgba(255, 0, 0, 0.6)",
+                            line = list(color = "rgb(20, 20, 20)",
+                                        width = 2))
+)
+ fig3 <- fig3 %>% layout(title = "Median Listing Prices in \nLeast 10 Expensive Counties (Dec 2020)", yaxis = list(title=" Listing Price", color ="black"))
+
+ fig3
+```
+
+
+Days on the Market
+=======================================================================
+
+Column {.tabset data-width=650}
+-----------------------------------------------------------------------
+
+### 10 Most Expensive Properties
+
+```{r}
+plot_ly(prices_2020, x = ~median_days_on_market, y = ~median_listing_price) %>%
+  layout(title = "Listing Price and Days on Market Top 10 Expensive")
+```
+
+### 10 Least Expensive Properties
+```{r}
+plot_ly(Lowest_prices_2020, x = ~median_days_on_market, y = ~median_listing_price) %>%
+  layout(title = "Listing Price and Days on Market 10 Least Expensive")
+```
+
+
+Column {.tabset data-width=350}
+-----------------------------------------------------------------------
+### Distribution of Median Days on Market in the 10 Most Expensive Counties
+
+```{r}
+plot_ly() %>%
+  add_trace(data = prices_2020,
+            y = ~median_days_on_market,
+            color = ~COUNTY_NAME,
+            type = "box") %>%
+  layout(title = "Median Days on Market for the 10 Most Expensive Counties",
+         yaxis = list(title = "Days on Market"), xaxis = list(title="Counties"))
+```
+
+### Distribution of Median Days on Market in the 10 Least Expensive Counties
+
+```{r}
+plot_ly() %>%
+  add_trace(data = Lowest_prices_2020,
+            y = ~median_days_on_market,
+            color = ~COUNTY_NAME,
+            type = "box") %>%
+  layout(title = "Sales per city",
+         xaxis = list(title = "City")) %>%
+  layout(title = "Median Days on Market for the 10 Least Expensive Counties",
+         yaxis = list(title = "Days on Market"), xaxis = list(title="Counties"))
+```
+
+
+Demand Hotness
+=======================================================================
+
+Column {.tabset data-width=650}
+-----------------------------------------------------------------------
+
+### 10 Most Expensive Counties
+
+
+```{r}
+plot_ly(prices_2020, x = ~median_listing_price, y = ~hotness_score) %>%
+  layout(title = "Hotness Score in the 10 Most Expensive Counties")
+```
+
+
+
+### 10 Least Expensive Counties
+
+
+
+```{r}
+plot_ly(Lowest_prices_2020, x = ~median_listing_price, y = ~hotness_score) %>%
+  layout(title = "Hotness Score in the 10 Least Expensive Counties")
+
+```
+
+
+Column {.tabset data-width=350}
+-----------------------------------------------------------------------
+
+### 10 Most Expensive Counties
+
+```{r}
+plot_ly() %>%
+  add_trace(data = prices_2020,
+            y = ~hotness_score,
+            color = ~COUNTY_NAME,
+            type = "box") %>%
+  layout(title = "Hotness Score for the 10 Most Expensive Counties ")
+```
+
+### 10 Least Expensive Counties
+
+```{r}
+plot_ly() %>%
+  add_trace(data = Lowest_prices_2020,
+            y = ~hotness_score,
+            color = ~COUNTY_NAME,
+            type = "box") %>%
+  layout(title = "Hotness Score in the 10 Least Expensive Counties")
+```
+
+
+
